@@ -1,34 +1,49 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Http.HttpResults;
+using System.Collections.Generic;
+using System.Linq;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddScoped<IUserService, UserService>();
+
 var app = builder.Build();
 
-app.UseStaticFiles();
-
-app.Run(async (context) =>
+app.MapGet("/users/{id}", (int id, IUserService userService) =>
 {
-    var response = context.Response;
-    var request = context.Request;
-    string path = request.Path.ToString().ToLower();
-    if (path == "/")
+    var user = userService.GetUserById(id);
+    if (user == null)
     {
-        response.ContentType = "text/html; charset=utf-8";
-        await response.SendFileAsync("html/index.html");
+        return Results.NotFound($"Пользователь с ID {id} не найден.");
     }
-    else if (path == "/form" && request.Method == "POST")
-    {
-        string userName = request.Form["userName"];
-        string userPhone = request.Form["userPhone"];
-        await response.WriteAsync($"User name - {userName}{Environment.NewLine}User phone - {userPhone}");
-    }
-    else if (path == "/form")
-    {
-        response.ContentType = "text/html; charset=utf-8";
-        await response.SendFileAsync("html/form.html");
-    }
-    else
-    {
-        response.StatusCode = 404;
-        await response.WriteAsync("Not found");
-    }
+    return Results.Ok(user);
 });
 
 app.Run();
+
+public interface IUserService
+{
+    User? GetUserById(int id);
+}
+
+public class UserService : IUserService
+{
+    private readonly List<User> _users = new List<User>
+    {
+        new User { Id = 1, Name = "Alice" },
+        new User { Id = 2, Name = "Bob" },
+        new User { Id = 3, Name = "Charlie" }
+    };
+
+    public User? GetUserById(int id)
+    {
+        return _users.FirstOrDefault(u => u.Id == id);
+    }
+}
+
+public class User
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+}
